@@ -116,18 +116,18 @@ class GAN():
         #model.add(Dense(256, input_shape=noise_shape))
         model.add(Reshape(input_shape=noise_shape,target_shape=self.reduce_shape))
         model.add(Conv2DTranspose(24, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
-        model.add(LeakyReLU(alpha=0.2))
-        model.add(BatchNormalization(momentum=0.8))
+        model.add(LeakyReLU(alpha=0.1))
+        model.add(BatchNormalization(momentum=0.9))
 
         #model.add(Dense(512))
         model.add(Conv2DTranspose(12, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
-        model.add(LeakyReLU(alpha=0.2))
-        model.add(BatchNormalization(momentum=0.8))
+        model.add(LeakyReLU(alpha=0.1))
+        model.add(BatchNormalization(momentum=0.9))
 
         #model.add(Dense(1024))
         model.add(Conv2DTranspose(6, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
-        model.add(LeakyReLU(alpha=0.2))
-        model.add(BatchNormalization(momentum=0.8))
+        model.add(LeakyReLU(alpha=0.1))
+        model.add(BatchNormalization(momentum=0.9))
 
         #model.add(Dense(np.prod(self.img_shape), activation='tanh'))
         model.add(Conv2DTranspose(3, self.kernel_size, strides=self.strides, padding=self.padding, activation='tanh', data_format="channels_last"))
@@ -149,21 +149,21 @@ class GAN():
         #model.add(Flatten(input_shape=img_shape))
         #model.add(Dense(512))
         model.add(Conv2D(input_shape=img_shape,filters=6, kernel_size=self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
-        model.add(LeakyReLU(alpha=0.2))
+        model.add(LeakyReLU(alpha=0.1))
 
         model.add(Conv2D(12, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
-        model.add(LeakyReLU(alpha=0.2))
+        model.add(LeakyReLU(alpha=0.1))
 
         model.add(Conv2D(24, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
-        model.add(LeakyReLU(alpha=0.2))
+        model.add(LeakyReLU(alpha=0.1))
 
         #model.add(Conv2D(48, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
         #model.add(LeakyReLU(alpha=0.2))
 
         model.add(Flatten())#input_shape=self.reduce_shape))
 
-        model.add(Dense(256))
-        model.add(LeakyReLU(alpha=0.2))
+        #model.add(Dense(256))
+        #model.add(LeakyReLU(alpha=0.2))
 
         model.add(Dense(1, activation='sigmoid'))
         model.summary()
