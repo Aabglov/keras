@@ -70,9 +70,17 @@ class GAN():
         self.img_rows = 64#28
         self.img_cols = 48#28
         self.channels = 3#1
+
+        self.gen_seed_size = 100
+
         self.reduce_rows = 4
         self.reduce_cols = 3
-        self.reduce_channels = 48
+        self.reduce_channels = 300#48
+        self.red_channels_2 = 256
+        self.red_channels_3 = 128
+        self.red_channels_4 = 64
+        self.red_channels_5 = 32
+
 
         self.kernel_size = [5,5]
         self.strides = (2,2)
@@ -93,7 +101,7 @@ class GAN():
         self.generator.compile(loss='binary_crossentropy', optimizer=optimizer)
 
         # The generator takes noise as input and generated imgs
-        z = Input(shape=(self.reduce_channels*self.reduce_rows*self.reduce_cols,))
+        z = Input(shape=(self.gen_seed_size,))
         img = self.generator(z)
 
         # For the combined model we will only train the generator
@@ -109,29 +117,32 @@ class GAN():
 
     def build_generator(self):
 
-        noise_shape = (self.reduce_channels*self.reduce_rows*self.reduce_cols,)
+        noise_shape = (self.gen_seed_size,)
 
         model = Sequential()
 
-        #model.add(Dense(256, input_shape=noise_shape))
-        model.add(Reshape(input_shape=noise_shape,target_shape=self.reduce_shape))
-        model.add(Conv2DTranspose(24, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
+        model.add(Dense(self.reduce_channels*self.reduce_rows*self.reduce_cols, input_shape=noise_shape))
         model.add(LeakyReLU(alpha=0.1))
+        model.add(Reshape(self.reduce_shape))
+
+        model.add(Conv2DTranspose(200, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
         model.add(BatchNormalization(momentum=0.9))
+        model.add(LeakyReLU(alpha=0.1))
 
         #model.add(Dense(512))
-        model.add(Conv2DTranspose(12, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
-        model.add(LeakyReLU(alpha=0.1))
+        model.add(Conv2DTranspose(100, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
         model.add(BatchNormalization(momentum=0.9))
+        model.add(LeakyReLU(alpha=0.1))
 
         #model.add(Dense(1024))
-        model.add(Conv2DTranspose(6, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
-        model.add(LeakyReLU(alpha=0.1))
+        model.add(Conv2DTranspose(50, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
         model.add(BatchNormalization(momentum=0.9))
+        model.add(LeakyReLU(alpha=0.1))
 
         #model.add(Dense(np.prod(self.img_shape), activation='tanh'))
         model.add(Conv2DTranspose(3, self.kernel_size, strides=self.strides, padding=self.padding, activation='tanh', data_format="channels_last"))
         model.add(Reshape(self.img_shape))
+        # No Batch Normalization on output of generator
 
         model.summary()
 
@@ -148,22 +159,23 @@ class GAN():
 
         #model.add(Flatten(input_shape=img_shape))
         #model.add(Dense(512))
-        model.add(Conv2D(input_shape=img_shape,filters=6, kernel_size=self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
+        model.add(Conv2D(input_shape=img_shape,filters=50, kernel_size=self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
+        model.add(LeakyReLU(alpha=0.1))
+        # No Batch Normalization on input of discriminator
+
+        model.add(Conv2D(100, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
+        model.add(BatchNormalization(momentum=0.9))
         model.add(LeakyReLU(alpha=0.1))
 
-        model.add(Conv2D(12, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
+        model.add(Conv2D(200, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
+        model.add(BatchNormalization(momentum=0.9))
         model.add(LeakyReLU(alpha=0.1))
 
-        model.add(Conv2D(24, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
+        model.add(Conv2D(self.reduce_channels, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
+        model.add(BatchNormalization(momentum=0.9))
         model.add(LeakyReLU(alpha=0.1))
-
-        #model.add(Conv2D(48, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
-        #model.add(LeakyReLU(alpha=0.2))
 
         model.add(Flatten())#input_shape=self.reduce_shape))
-
-        #model.add(Dense(256))
-        #model.add(LeakyReLU(alpha=0.2))
 
         model.add(Dense(1, activation='sigmoid'))
         model.summary()
@@ -196,7 +208,7 @@ class GAN():
             #imgs = X_train[idx]
             imgs = batcher.next()
 
-            noise = np.random.normal(0, 1, (half_batch, self.reduce_channels*self.reduce_rows*self.reduce_cols))
+            noise = np.random.normal(0, 1, (half_batch, self.gen_seed_size))
 
             # Generate a half batch of new images
             gen_imgs = self.generator.predict(noise)
@@ -211,7 +223,7 @@ class GAN():
             #  Train Generator
             # ---------------------
 
-            noise = np.random.normal(0, 1, (batch_size, self.reduce_channels*self.reduce_rows*self.reduce_cols))
+            noise = np.random.normal(0, 1, (batch_size, self.gen_seed_size))
 
             # The generator wants the discriminator to label the generated samples
             # as valid (ones)
@@ -229,7 +241,7 @@ class GAN():
 
     def save_imgs(self, epoch):
         r, c = 5, 5
-        noise = np.random.normal(0, 1, (r * c, self.reduce_channels*self.reduce_rows*self.reduce_cols))
+        noise = np.random.normal(0, 1, (r * c, self.gen_seed_size))
         gen_imgs = self.generator.predict(noise)
 
         # Rescale images 0 - 1
@@ -248,4 +260,4 @@ class GAN():
 
 if __name__ == '__main__':
     gan = GAN()
-    gan.train(epochs=30000, batch_size=32, save_interval=100)
+    gan.train(epochs=30000, batch_size=50, save_interval=100)
