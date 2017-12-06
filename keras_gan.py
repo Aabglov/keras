@@ -42,7 +42,11 @@ class CelebImageBatcher:
         batch = []
         for i in range(self.start,self.start+self.batch_size):
             #image = imread(self.data_dict[i])
-            img = Image.open(self.data_dict[i])
+            if i >= self.end:
+                j = i - self.end
+            else:
+                j = i
+            img = Image.open(self.data_dict[j])
             w_scale = 48#int(img.size[0] * self.scale)
             h_scale = 64#int(img.size[1] * self.scale)
             img = img.resize((w_scale,h_scale), Image.ANTIALIAS)
@@ -75,11 +79,11 @@ class GAN():
 
         self.reduce_rows = 4
         self.reduce_cols = 3
-        self.reduce_channels = 300#48
-        self.red_channels_2 = 256
-        self.red_channels_3 = 128
-        self.red_channels_4 = 64
-        self.red_channels_5 = 32
+        self.reduce_channels = 1024#512
+        self.red_channels_2 = int(self.reduce_channels / 2.0)
+        self.red_channels_3 = int(self.reduce_channels / 4.0)
+        self.red_channels_4 = int(self.reduce_channels / 8.0)
+        self.red_channels_5 = int(self.reduce_channels / 16.0)
 
 
         self.kernel_size = [5,5]
@@ -125,22 +129,22 @@ class GAN():
         model.add(LeakyReLU(alpha=0.1))
         model.add(Reshape(self.reduce_shape))
 
-        model.add(Conv2DTranspose(200, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
+        model.add(Conv2DTranspose(self.red_channels_2, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
         model.add(BatchNormalization(momentum=0.9))
         model.add(LeakyReLU(alpha=0.1))
 
         #model.add(Dense(512))
-        model.add(Conv2DTranspose(100, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
+        model.add(Conv2DTranspose(self.red_channels_3, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
         model.add(BatchNormalization(momentum=0.9))
         model.add(LeakyReLU(alpha=0.1))
 
         #model.add(Dense(1024))
-        model.add(Conv2DTranspose(50, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
+        model.add(Conv2DTranspose(self.red_channels_4, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
         model.add(BatchNormalization(momentum=0.9))
         model.add(LeakyReLU(alpha=0.1))
 
         #model.add(Dense(np.prod(self.img_shape), activation='tanh'))
-        model.add(Conv2DTranspose(3, self.kernel_size, strides=self.strides, padding=self.padding, activation='tanh', data_format="channels_last"))
+        model.add(Conv2DTranspose(self.channels, self.kernel_size, strides=self.strides, padding=self.padding, activation='tanh', data_format="channels_last"))
         model.add(Reshape(self.img_shape))
         # No Batch Normalization on output of generator
 
@@ -159,15 +163,15 @@ class GAN():
 
         #model.add(Flatten(input_shape=img_shape))
         #model.add(Dense(512))
-        model.add(Conv2D(input_shape=img_shape,filters=50, kernel_size=self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
+        model.add(Conv2D(input_shape=img_shape,filters=self.red_channels_4, kernel_size=self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
         model.add(LeakyReLU(alpha=0.1))
         # No Batch Normalization on input of discriminator
 
-        model.add(Conv2D(100, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
+        model.add(Conv2D(self.red_channels_3, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
         model.add(BatchNormalization(momentum=0.9))
         model.add(LeakyReLU(alpha=0.1))
 
-        model.add(Conv2D(200, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
+        model.add(Conv2D(self.red_channels_2, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
         model.add(BatchNormalization(momentum=0.9))
         model.add(LeakyReLU(alpha=0.1))
 
@@ -260,4 +264,4 @@ class GAN():
 
 if __name__ == '__main__':
     gan = GAN()
-    gan.train(epochs=30000, batch_size=50, save_interval=100)
+    gan.train(epochs=30000, batch_size=50, save_interval=200)
