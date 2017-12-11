@@ -17,7 +17,7 @@ from random import shuffle
 
 
 #DIR_PATH = os.path.dirname(os.path.realpath(__file__))
-DIR_PATH = "/Users/keganrabil/Desktop/WIP/tensorflow"
+DIR_PATH = "/Users/keganrabil/Desktop/tensorflow"
 DATA_PATH = os.path.join(DIR_PATH,"data","celeb")
 
 
@@ -79,7 +79,7 @@ class GAN():
 
         self.reduce_rows = 4
         self.reduce_cols = 3
-        self.reduce_channels = 1024#512
+        self.reduce_channels = 128#1024
         self.red_channels_2 = int(self.reduce_channels / 2.0)
         self.red_channels_3 = int(self.reduce_channels / 4.0)
         self.red_channels_4 = int(self.reduce_channels / 8.0)
@@ -258,7 +258,7 @@ class GAN():
                 axs[i,j].imshow(gen_imgs[cnt, :,:,:])#, cmap='gray')
                 axs[i,j].axis('off')
                 cnt += 1
-        fig.savefig("gan/images/face_%d.png" % epoch)
+        fig.savefig("images/face_%d.png" % epoch)
         plt.close()
 
 
