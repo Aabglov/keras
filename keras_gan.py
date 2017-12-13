@@ -80,12 +80,17 @@ class GAN():
 
         self.reduce_rows = 4
         self.reduce_cols = 3
-        self.reduce_channels = 1024
-        self.red_channels_2 = int(self.reduce_channels / 2.0)
+        self.reduce_channels = 300#512#1024
+        self.red_channels_2 = int(self.reduce_channels / 1.2)#2.0)
         self.red_channels_3 = int(self.reduce_channels / 4.0)
         self.red_channels_4 = int(self.reduce_channels / 8.0)
         self.red_channels_5 = int(self.reduce_channels / 16.0)
 
+        # self.reduce_channels = 300
+        # self.red_channels_2 = 256
+        # self.red_channels_3 = 128
+        # self.red_channels_4 = 64
+        # self.red_channels_5 = 32
 
         self.kernel_size = [5,5]
         self.strides = (2,2)
@@ -133,6 +138,7 @@ class GAN():
         noise_shape = (self.gen_seed_size,)
 
         model = Sequential()
+
         model.add(Dense(self.reduce_channels*self.reduce_rows*self.reduce_cols, input_shape=noise_shape))
         model.add(LeakyReLU(alpha=0.1))
         model.add(Reshape(self.reduce_shape))
@@ -149,7 +155,6 @@ class GAN():
         model.add(BatchNormalization(momentum=0.9))
         model.add(LeakyReLU(alpha=0.1))
 
-        #model.add(Dense(np.prod(self.img_shape), activation='tanh'))
         model.add(Conv2DTranspose(self.channels, self.kernel_size, strides=self.strides, padding=self.padding, activation='tanh', data_format="channels_last"))
         model.add(Reshape(self.img_shape))
         # No Batch Normalization on output of generator
@@ -166,8 +171,7 @@ class GAN():
         img_shape = (self.img_rows, self.img_cols, self.channels)
 
         model = Sequential()
-        #model.add(Flatten(input_shape=img_shape))
-        #model.add(Dense(512))
+
         model.add(Conv2D(input_shape=img_shape,filters=self.red_channels_4, kernel_size=self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
         model.add(LeakyReLU(alpha=0.1))
         # No Batch Normalization on input of discriminator
@@ -254,9 +258,6 @@ class GAN():
             print("Models saved")
 
     def save_imgs(self, epoch):
-        # Save models
-        self.generator.save(GEN_MODEL_PATH)
-        self.discriminator.save(DISC_MODEL_PATH)
         # Create predictions
         r, c = 5, 5
         noise = np.random.normal(0, 1, (r * c, self.gen_seed_size))
@@ -279,3 +280,6 @@ class GAN():
 if __name__ == '__main__':
     gan = GAN()
     gan.train(epochs=30000, batch_size=50, save_interval=200)
+    # Save models
+    gan.generator.save(GEN_MODEL_PATH)
+    gan.discriminator.save(DISC_MODEL_PATH)
