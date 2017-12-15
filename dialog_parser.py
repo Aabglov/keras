@@ -5,16 +5,15 @@ import numpy as np # Used for One-hot encoding
 import json # Used for json helper
 import ast # USed to parse List from string ("['a','b',c']")
 
-from nltk import word_tokenize # Word tokenizer
 import re
 
 EOS_SEARCH = "[\.,?!]+"
 REGEX_SEARCH = '[^0-9a-zA-Z.,?!]+'
 GO = u'\xbb'
-UNK = u'\xac'
-PAD = u'\xf8'
-EOS = u'\xa4'
-SPLIT = u'\u00BB'
+UNK = u'\xbf'
+PAD = u'\xac'
+EOS = u'\xf8'
+SPLIT = u'\xa4'
 
 DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = os.path.join(DIR_PATH,"data","dialog")
@@ -22,8 +21,8 @@ STRUCTURE_PATH = os.path.join(DATA_PATH,"movie_conversations.txt")
 LINES_PATH = os.path.join(DATA_PATH,"movie_lines.txt")
 SAVE_PATH = os.path.join(DATA_PATH,"parsed")
 SPACER = " +++$+++ " # Arbitrary spacer token used by dataset
-#DEBUG = False
-DEBUG = True
+DEBUG = False
+#DEBUG = True
 
 REMOVE_SINGLES = True
 
@@ -44,11 +43,17 @@ def preTokenize(text):
         text = text.replace(str(num)," "+str(num)+" ")
     return text
 
+def indexEncode(word,vocabulary):
+    return vocabulary.index(word)
+
 def parseDialog():
     convs = []
     lines = {}
     vocabulary = [GO ,UNK ,PAD ,EOS ,SPLIT]
     vocab_occur = {}
+
+    input_seq = []
+    target_seq = []
 
     print("reading lines...")
     with open(LINES_PATH,"r",encoding="latin1") as f:
@@ -96,6 +101,22 @@ def parseDialog():
             conv_lines = [lines[l.strip()] for l in line_indices]
             convs.append(Conversation(subject1,subject2,conv_lines))
 
+    for c in convs:
+        for i in range(len(c.lines)-1) # Iterate to penultimate entry because we reference next line below
+            # Create entry for input_seq
+            line = c.lines[i]
+            encoded_line = []
+            for word in line:
+                encoded_line.append(word)#indexEncode(word))
+            input_seq.append(encoded_line)
+            # Create entry for target_seq
+            line = c.lines[i+1]
+            encoded_line = []
+            for word in line:
+                encoded_line.append(word)indexEncode(word))
+            target_seq.append(encoded_line)
+
+
     if DEBUG:
         #for v in vocabulary:
         #    print(v)
@@ -114,8 +135,9 @@ def parseDialog():
         for k,v in vocab_occur.items():
             if v <= 1:
                 vocabulary.remove(k)
-    print(len(vocabulary))
-    return vocabulary
+        print(len(vocabulary))
+
+    return input_seq,target_seq,convs,vocabulary
 
 if __name__=="__main__":
     parseDialog()
