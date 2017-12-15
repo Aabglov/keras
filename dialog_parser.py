@@ -113,7 +113,7 @@ def parseDialog():
             line = c.lines[i+1]
             encoded_line = []
             for word in line:
-                encoded_line.append(word)indexEncode(word))
+                encoded_line.append(word)#indexEncode(word))
             target_seq.append(encoded_line)
 
 
