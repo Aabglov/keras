@@ -98,7 +98,7 @@ class GAN():
 
         self.img_shape = (self.img_rows, self.img_cols, self.channels)
         self.reduce_shape = (self.reduce_rows, self.reduce_cols, self.reduce_channels)
-        optimizer = Adam(0.0002, 0.5)
+        optimizer = Adam(0.0001, 0.5) #Adam(0.0002, 0.5)
 
         # Build and compile the discriminator
         try:
