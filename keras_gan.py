@@ -98,7 +98,7 @@ class GAN():
 
         self.img_shape = (self.img_rows, self.img_cols, self.channels)
         self.reduce_shape = (self.reduce_rows, self.reduce_cols, self.reduce_channels)
-        optimizer = Adam(0.0001, 0.5) #Adam(0.0002, 0.5)
+        optimizer = Adam(0.0002, 0.5)
 
         # Build and compile the discriminator
         try:
@@ -177,15 +177,15 @@ class GAN():
         # No Batch Normalization on input of discriminator
 
         model.add(Conv2D(self.red_channels_3, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
-        model.add(BatchNormalization(momentum=0.9))
+        #model.add(BatchNormalization(momentum=0.9))
         model.add(LeakyReLU(alpha=0.1))
 
         model.add(Conv2D(self.red_channels_2, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
-        model.add(BatchNormalization(momentum=0.9))
+        #model.add(BatchNormalization(momentum=0.9))
         model.add(LeakyReLU(alpha=0.1))
 
         model.add(Conv2D(self.reduce_channels, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
-        model.add(BatchNormalization(momentum=0.9))
+        #model.add(BatchNormalization(momentum=0.9))
         model.add(LeakyReLU(alpha=0.1))
 
         model.add(Flatten())#input_shape=self.reduce_shape))
