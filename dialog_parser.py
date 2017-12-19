@@ -4,6 +4,7 @@ import os
 import numpy as np # Used for One-hot encoding
 import json # Used for json helper
 import ast # USed to parse List from string ("['a','b',c']")
+import caffeine
 
 import re
 
@@ -23,8 +24,14 @@ SAVE_PATH = os.path.join(DATA_PATH,"parsed")
 SPACER = " +++$+++ " # Arbitrary spacer token used by dataset
 DEBUG = False
 #DEBUG = True
-
 REMOVE_SINGLES = True
+SYMBOLS = ["~", "`", "!", "<", ">", ".", ",", \
+           ":", ";", "\"", "'", "\\", "/", "(", \
+           ")", "[", "]", "^", "?", "-", "+", \
+           "{", "}", "&", \
+           # Separate numbers into their own entries for vocabulary.
+           # We don't want to have every 3 digit number as its own word.
+           "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
 
 class Conversation:
     def __init__(self,subject1,subject2,lines):
@@ -33,23 +40,25 @@ class Conversation:
         self.lines = lines
 
 def preTokenize(text):
-    text = text.replace("."," . ")
-    text = text.replace(","," , ")
-    text = text.replace("?"," ? ")
-    text = text.replace("!"," ! ")
-    # Separate numbers into their own entries for vocabulary.
-    # We don't want to have every 3 digit number as its own word.
-    for num in [0,1,2,3,4,5,6,7,8,9]:
-        text = text.replace(str(num)," "+str(num)+" ")
-    return text
+    # Separate symbols into their own entries
+    # in our vocabulary.
+    # eg "you." will become "you" and "."
+
+    for s in SYMBOLS:
+        text = text.replace(s," {} ".format(s))
+
+    return text.strip()
 
 def indexEncode(word,vocabulary):
-    return vocabulary.index(word)
+    if word in vocabulary:
+        return vocabulary.index(word)
+    else:
+        return UNK
 
 def parseDialog():
     convs = []
     lines = {}
-    vocabulary = [GO ,UNK ,PAD ,EOS ,SPLIT]
+    vocabulary = [GO ,UNK ,PAD ,EOS ,SPLIT] + SYMBOLS
     vocab_occur = {}
 
     input_seq = []
@@ -74,7 +83,8 @@ def parseDialog():
 
             cleaned_text = re.sub(REGEX_SEARCH, ' ', text)
             tokens = cleaned_text.strip().split(" ")
-            for t in tokens:
+            for token in tokens:
+                t = preTokenize(token)
                 # This will add duplicates, but
                 # we remove them in the next step
                 vocabulary.append(t)
@@ -88,6 +98,16 @@ def parseDialog():
     # Remove duplicates
     vocabulary = list(set(vocabulary))
 
+    if REMOVE_SINGLES:
+        for k,v in vocab_occur.items():
+            if v <= 1:
+                vocabulary.remove(k)
+        print(len(vocabulary))
+    vocab_lookup = {}
+    for i in range(len(vocabulary)):
+        word = vocabulary[i]
+        vocab_lookup[word] = i
+
     print("creating conversation objects...")
     with open(STRUCTURE_PATH,"r") as f:
         struct_raw = f.read().split("\n")
@@ -100,22 +120,26 @@ def parseDialog():
             line_indices = ast.literal_eval(line_indices_raw)
             conv_lines = [lines[l.strip()] for l in line_indices]
             convs.append(Conversation(subject1,subject2,conv_lines))
-
-    for c in convs:
-        for i in range(len(c.lines)-1) # Iterate to penultimate entry because we reference next line below
+    seqs = []
+    for j in range(len(convs)):
+        print(j," of ", len(convs))
+        c = convs[j]
+        for i in range(len(c.lines)): # Iterate to penultimate entry because we reference next line below
             # Create entry for input_seq
             line = c.lines[i]
             encoded_line = []
-            for word in line:
-                encoded_line.append(word)#indexEncode(word))
-            input_seq.append(encoded_line)
-            # Create entry for target_seq
-            line = c.lines[i+1]
-            encoded_line = []
-            for word in line:
-                encoded_line.append(word)#indexEncode(word))
-            target_seq.append(encoded_line)
+            cleaned_line = preTokenize(line)
+            for word in cleaned_line.split(" "):
+                #encoded_line.append(word)
+                if word in vocabulary:
+                    encoded_line.append(vocab_lookup[word])
+                else:
+                    encoded_line.append(vocab_lookup[UNK])
+            seqs.append(encoded_line)
 
+    print("sequences created")
+    input_seq = seqs[:-1]
+    target_seq = seqs[1:]
 
     if DEBUG:
         #for v in vocabulary:
@@ -130,12 +154,6 @@ def parseDialog():
             if v <= 1:
                 rare.append(k)
         print(len(rare))
-
-    if REMOVE_SINGLES:
-        for k,v in vocab_occur.items():
-            if v <= 1:
-                vocabulary.remove(k)
-        print(len(vocabulary))
 
     return input_seq,target_seq,convs,vocabulary
 

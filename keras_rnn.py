@@ -32,12 +32,44 @@ PAD =   dialog_parser.PAD
 EOS =   dialog_parser.EOS
 SPLIT = dialog_parser.SPLIT
 
-input_seq,target_seq,convs,vocab = dialog_parser.parseDialog()
+def save(obj,name):
+    with open(os.path.join(dir_path,name),"wb+") as f:
+        pickle.dump(obj,f)
 
-print(len(convs))
-print(len(vocab))
+def load(name):
+    with open(os.path.join(dir_path,name),"rb") as f:
+        return pickle.load(f)
 
 
+try:
+    input_seq = load("inputs.pkl")
+    target_seq = load("targets.pkl")
+    convs = load("convs.pkl")
+    vocab = load("vocab.pkl")
+    print("Loaded prepared data...")
+
+except Exception as e:
+    print("FAILED TO LOAD:")
+    print(e)
+
+    input_seq,target_seq,convs,vocab = dialog_parser.parseDialog()
+
+    save(input_seq,"inputs.pkl")
+    save(target_seq,"targets.pkl")
+    save(convs,"convs.pkl")
+    save(vocab,"vocab.pkl")
+
+vocab_lookup = {}
+reverse_vocab_lookup = {}
+for i in range(len(vocab)):
+    word = vocab[i]
+    vocab_lookup[word] = i
+    reverse_vocab_lookup[i] = word
+print(input_seq[1])
+print(" ".join([reverse_vocab_lookup[i] for i in input_seq[1]]))
+print(" ".join([reverse_vocab_lookup[i] for i in target_seq[0]]))
+print(convs[0].lines[0])
+print(convs[0].lines[1])
 
 HODOR
 
