@@ -21,7 +21,7 @@ np.random.seed(36)
 SAVE_DIR = "conv"
 CHECKPOINT_NAME = "conv_steps.ckpt"
 PICKLE_PATH = "conv_tokenized.pkl"
-
+DEBUG = False
 dir_path = os.path.dirname(os.path.realpath(__file__))
 model_path = os.path.join(dir_path,"saved",SAVE_DIR,CHECKPOINT_NAME)
 checkpoint_path = os.path.join(dir_path,"saved",SAVE_DIR)
@@ -65,42 +65,30 @@ for i in range(len(vocab)):
     word = vocab[i]
     vocab_lookup[word] = i
     reverse_vocab_lookup[i] = word
-print(input_seq[1])
-print(" ".join([reverse_vocab_lookup[i] for i in input_seq[1]]))
-print(" ".join([reverse_vocab_lookup[i] for i in target_seq[0]]))
-print(convs[0].lines[0])
-print(convs[0].lines[1])
 
-HODOR
+# Remove the null character (0)
+# uh..
+for i in range(len(input_seq)):
+    k = input_seq[i]
+    input_seq[i] = [x for x in k if x != 0]
+
+for i in range(len(target_seq)):
+    k = target_seq[i]
+    target_seq[i] = [x for x in k if x != 0]
+
+if DEBUG:
+    print(input_seq[1])
+    print(" ".join([reverse_vocab_lookup[i] for i in input_seq[1]]))
+    print(" ".join([reverse_vocab_lookup[i] for i in target_seq[0]]))
+    print(convs[0].lines[1])
+
 
 batch_size = 64  # Batch size for training.
 epochs = 100  # Number of epochs to train for.
 latent_dim = 256  # Latent dimensionality of the encoding space.
 num_samples = 10000  # Number of samples to train on.
-
-# Vectorize the data.
-input_texts = []
-target_texts = []
-input_characters = set()
-target_characters = set()
-lines = open(data_path).read().split('\n')
-for line in lines[: min(num_samples, len(lines) - 1)]:
-    input_text, target_text = line.split('\t')
-    # We use "tab" as the "start sequence" character
-    # for the targets, and "\n" as "end sequence" character.
-    target_text = '\t' + target_text + '\n'
-    input_texts.append(input_text)
-    target_texts.append(target_text)
-    for char in input_text:
-        if char not in input_characters:
-            input_characters.add(char)
-    for char in target_text:
-        if char not in target_characters:
-            target_characters.add(char)
-
-
-
-
+# max length of 100 excludes about 1200 of 300k samples.
+# max length of 200 excludes about 100 of 300k
 max_seq_len = 100
 
 
