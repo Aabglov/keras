@@ -177,15 +177,15 @@ class GAN():
         # No Batch Normalization on input of discriminator
 
         model.add(Conv2D(self.red_channels_3, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
-        #model.add(BatchNormalization(momentum=0.9))
+        model.add(BatchNormalization(momentum=0.9))
         model.add(LeakyReLU(alpha=0.1))
 
         model.add(Conv2D(self.red_channels_2, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
-        #model.add(BatchNormalization(momentum=0.9))
+        model.add(BatchNormalization(momentum=0.9))
         model.add(LeakyReLU(alpha=0.1))
 
         model.add(Conv2D(self.reduce_channels, self.kernel_size, strides=self.strides, padding=self.padding, data_format="channels_last"))
-        #model.add(BatchNormalization(momentum=0.9))
+        model.add(BatchNormalization(momentum=0.9))
         model.add(LeakyReLU(alpha=0.1))
 
         model.add(Flatten())#input_shape=self.reduce_shape))
