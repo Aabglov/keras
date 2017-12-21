@@ -13,6 +13,7 @@ import dialog_parser
 from keras.models import Model
 from keras.layers import Input, LSTM, Dense, Embedding
 from keras.preprocessing import sequence
+from keras.utils import to_categorical
 import numpy as np
 # fix random seed for reproducibility
 np.random.seed(36)
@@ -97,8 +98,8 @@ num_samples = 10000  # Number of samples to train on.
 # max length of 100 excludes about 1200 of 300k samples.
 # max length of 200 excludes about 100 of 300k
 max_seq_len = 100
-num_encoder_tokens = 1028#32
-num_decoder_tokens = num_encoder_tokens
+vocab_len = len(vocab)
+embedding_dim = 1028#32
 split_index = int(len(input_seq) * 0.8)
 
 # load the dataset but only keep the top n words, zero the rest
@@ -111,34 +112,39 @@ split_index = int(len(input_seq) * 0.8)
 padded_input = sequence.pad_sequences(input_seq, maxlen=max_seq_len)
 padded_target_input = sequence.pad_sequences(target_input_seq, maxlen=max_seq_len)
 padded_target_output = sequence.pad_sequences(target_output_seq, maxlen=max_seq_len)
+
+
+
 # Turn our sequences into arrays
 encoder_input_data = np.asarray(padded_input,dtype='float32')
 decoder_input_data = np.asarray(padded_target_input ,dtype='float32')
-decoder_target_data = np.asarray(padded_target_output,dtype='float32')
+decoder_target_data = to_categorical(np.asarray(padded_target_output,dtype='float32'))
 
 
 
 
 ######################## MODEL #############################
 # Define an input sequence and process it.
-encoder_inputs = Input(shape=(None,max_seq_len))
-x = Embedding(num_encoder_tokens, latent_dim)(encoder_inputs)
-x, state_h, state_c = LSTM(latent_dim,
-                           return_state=True)(x)
+encoder_inputs = Input(shape=(max_seq_len,))
+
+x = Embedding(vocab_len, embedding_dim,input_length=max_seq_len)(encoder_inputs)
+x, state_h, state_c = LSTM(latent_dim,return_state=True)(x)
 encoder_states = [state_h, state_c]
 
 # Set up the decoder, using `encoder_states` as initial state.
-decoder_inputs = Input(shape=(None,max_seq_len))
-x = Embedding(num_decoder_tokens, latent_dim)(decoder_inputs)
+decoder_inputs = Input(shape=(max_seq_len,))
+x = Embedding(vocab_len, embedding_dim,input_length=max_seq_len)(decoder_inputs)
 x = LSTM(latent_dim, return_sequences=True)(x, initial_state=encoder_states)
-decoder_outputs = Dense(num_decoder_tokens, activation='softmax')(x)
+decoder_outputs = Dense(vocab_len, activation='softmax')(x)
 
 # Define the model that will turn
 # `encoder_input_data` & `decoder_input_data` into `decoder_target_data`
 model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
 
-# Run training
+# Compile & run training
 model.compile(optimizer='rmsprop', loss='categorical_crossentropy')
+# Note that `decoder_target_data` needs to be one-hot encoded,
+# rather than sequences of integers like `decoder_input_data`!
 model.fit([encoder_input_data, decoder_input_data], decoder_target_data,
           batch_size=batch_size,
           epochs=epochs,
@@ -146,6 +152,8 @@ model.fit([encoder_input_data, decoder_input_data], decoder_target_data,
 
 # Save model
 model.save('s2s.h5')
+
+HODOR
 
 # Next: inference mode (sampling).
 # Here's the drill:
