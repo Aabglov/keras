@@ -10,6 +10,8 @@ import time
 import caffeine
 import dialog_parser
 
+from random import shuffle
+
 from keras.models import Model
 from keras.layers import Input, LSTM, Dense, Embedding
 from keras.preprocessing import sequence
@@ -43,6 +45,35 @@ def load(name):
         return pickle.load(f)
 
 
+class Batcher:
+    def __init__(self, encoder_input_data, decoder_input_data, decoder_target_data, batch_size):
+        self.encoder_input =  encoder_input_data
+        self.decoder_input =  decoder_input_data
+        self.decoder_target = decoder_target_data
+        self.index = 0
+        self.batch_size = batch_size
+        # This should be the same as using
+        # decoder_input and decoder_target because
+        # They're all the same length
+        self.length = len(self.encoder_input)
+
+    def next(self):
+        begin = self.index
+        # If the batch would go past the end of
+        # our dataset we instead return
+        # the remaining entries only.
+        # Prevents overflow
+        if (self.index + self.batch_size) > self.length:
+            end = -1
+        else:
+            end = self.index + self.batch_size
+        output = [self.encoder_input[begin:end],
+                  self.decoder_input[begin:end],
+                  self.decoder_target[begin:end]]
+        self.index += 1
+        self.index = self.index % self.length
+        return output
+
 try:
     input_seq = load("inputs.pkl")
     target_seq = load("targets.pkl")
@@ -70,12 +101,6 @@ for i in range(len(vocab)):
     vocab_lookup[word] = i
     reverse_vocab_lookup[i] = word
 
-# Remove the null character (0)
-# uh..
-for i in range(len(input_seq)):
-    k = input_seq[i]
-    input_seq[i] = [x for x in k if x != 0]
-
 target_input_seq = []
 target_output_seq = []
 for i in range(len(target_seq)):
@@ -99,29 +124,21 @@ num_samples = 10000  # Number of samples to train on.
 # max length of 200 excludes about 100 of 300k
 max_seq_len = 100
 vocab_len = len(vocab)
-embedding_dim = 1028#32
-split_index = int(len(input_seq) * 0.8)
+save_interval = 100
+log_interval = 10
 
-# load the dataset but only keep the top n words, zero the rest
-#X_train = input_seq[:split_index]
-#X_test = input_seq[split_index:]
-#y_train = target_seq[:split_index]
-#y_test = target_seq[split_index:]
+embedding_dim = 128
 
 # truncate and pad input sequences
-padded_input = sequence.pad_sequences(input_seq, maxlen=max_seq_len)
-padded_target_input = sequence.pad_sequences(target_input_seq, maxlen=max_seq_len)
-padded_target_output = sequence.pad_sequences(target_output_seq, maxlen=max_seq_len)
-
-
+pad_val = vocab_lookup[PAD]
+padded_input = sequence.pad_sequences(input_seq, maxlen=max_seq_len,value=pad_val)
+padded_target_input = sequence.pad_sequences(target_input_seq, maxlen=max_seq_len,value=pad_val)
+padded_target_output = sequence.pad_sequences(target_output_seq, maxlen=max_seq_len,value=pad_val)
 
 # Turn our sequences into arrays
 encoder_input_data = np.asarray(padded_input,dtype='float32')
 decoder_input_data = np.asarray(padded_target_input ,dtype='float32')
-decoder_target_data = to_categorical(np.asarray(padded_target_output,dtype='float32'))
-
-
-
+decoder_target_data = to_categorical(np.asarray(padded_target_output,dtype='float32'),num_classes=vocab_len)
 
 ######################## MODEL #############################
 # Define an input sequence and process it.
@@ -136,22 +153,62 @@ decoder_inputs = Input(shape=(max_seq_len,))
 x = Embedding(vocab_len, embedding_dim,input_length=max_seq_len)(decoder_inputs)
 x = LSTM(latent_dim, return_sequences=True)(x, initial_state=encoder_states)
 decoder_outputs = Dense(vocab_len, activation='softmax')(x)
-
 # Define the model that will turn
 # `encoder_input_data` & `decoder_input_data` into `decoder_target_data`
 model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
 
 # Compile & run training
-model.compile(optimizer='rmsprop', loss='categorical_crossentropy')
+model.compile(optimizer='adam', loss='categorical_crossentropy')
+
 # Note that `decoder_target_data` needs to be one-hot encoded,
 # rather than sequences of integers like `decoder_input_data`!
-model.fit([encoder_input_data, decoder_input_data], decoder_target_data,
-          batch_size=batch_size,
-          epochs=epochs,
-          validation_split=0.2)
+#model.fit([encoder_input_data, decoder_input_data], decoder_target_data,
+#          batch_size=batch_size,
+#          epochs=epochs,
+#          validation_split=0.2)
+
+batcher = Batcher(encoder_input_data, decoder_input_data, decoder_target_data, batch_size)
+
+# Define helper functions for printing
+# conversations for training evaluation
+def printEncoderInput(encoder_input):
+    enc = encoder_input[0]
+    enc_words = [reverse_vocab_lookup[w] for w in enc]
+    print(" ".join(enc_words))
+def printPred(pred_vec):
+    pred = pred_vec[0]
+    pred_words = [reverse_vocab_lookup[np.argmax(w)] for w in pred]
+    print(" ".join(pred_words))
+
+try:
+    for epoch in range(epochs):
+        # Iterate through our dataset
+        for _ in range(batcher.length // batcher.batch_size):
+            encoder_input_batch,decoder_input_batch,decoder_target_batch = batcher.next()
+
+            # Train the generator
+            loss = model.train_on_batch([encoder_input_batch, decoder_input_batch], decoder_target_batch)
+
+            # Plot the progress
+            print("%d loss: %f" % (epoch, loss))
+
+            if _ % log_interval == 0:
+                pred = model.predict([encoder_input_batch, decoder_input_batch])
+                printEncoderInput(encoder_input_batch)
+                printPred(pred)
+
+            # If at save interval => save generated image samples
+            if _ % save_interval == 0:
+                model.save('saved/rnn/s2s_{}.h5'.format(epoch))
+
+
+except KeyboardInterrupt:
+    print("Early exit")
+
+
 
 # Save model
-model.save('s2s.h5')
+model.save('saved/rnn/s2s_final.h5')
 
 HODOR
 

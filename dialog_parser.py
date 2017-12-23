@@ -24,7 +24,8 @@ SAVE_PATH = os.path.join(DATA_PATH,"parsed")
 SPACER = " +++$+++ " # Arbitrary spacer token used by dataset
 DEBUG = False
 #DEBUG = True
-REMOVE_SINGLES = True
+REMOVE_SINGLES = False
+
 SYMBOLS = ["~", "`", "!", "<", ">", ".", ",", \
            ":", ";", "\"", "'", "\\", "/", "(", \
            ")", "[", "]", "^", "?", "-", "+", \
@@ -32,6 +33,8 @@ SYMBOLS = ["~", "`", "!", "<", ">", ".", ",", \
            # Separate numbers into their own entries for vocabulary.
            # We don't want to have every 3 digit number as its own word.
            "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
+
+VOCAB_TOP = 5000
 
 class Conversation:
     def __init__(self,subject1,subject2,lines):
@@ -73,12 +76,12 @@ def parseDialog():
             line_parts = line_raw.split(SPACER)
             text = line_parts[4].lower()
             lines[line_parts[0]] = text
+
             # While we're here, we minds as well
             # create a vocabulary for word embedding
             # some characters are separators in addition
             # to the space character " ".  We
             # handle that here:
-            #tokens = word_tokenize(text)
             text = preTokenize(text)
 
             cleaned_text = re.sub(REGEX_SEARCH, ' ', text)
@@ -102,7 +105,33 @@ def parseDialog():
         for k,v in vocab_occur.items():
             if v <= 1:
                 vocabulary.remove(k)
-        print(len(vocabulary))
+
+    # Remove null from vocabulary
+    vocabulary.remove("")
+    print(len(vocabulary))
+
+    if VOCAB_TOP > 0:
+        sorted_vocab_occur = sorted(vocab_occur.items(), key=lambda x: x[1], reverse=True)
+        top_vocab = []
+        count = 0
+        for s in sorted_vocab_occur:
+            if count < 5000:
+                top_vocab.append(s)
+                count += 1
+            else:
+                break
+        vocabulary = [t[0] for t in top_vocab]
+        
+        for token in [GO ,UNK ,PAD ,EOS ,SPLIT]:
+            if token not in vocabulary:
+                vocabulary.append(token)
+
+    if DEBUG:
+        print(len(top_vocab))
+        for entry in top_vocab[:10]:
+            v = entry[0]
+            print(v,vocab_occur[v])
+
     vocab_lookup = {}
     for i in range(len(vocabulary)):
         word = vocabulary[i]
