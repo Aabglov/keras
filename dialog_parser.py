@@ -5,6 +5,7 @@ import numpy as np # Used for One-hot encoding
 import json # Used for json helper
 import ast # USed to parse List from string ("['a','b',c']")
 #import caffeine
+import io
 
 import re
 
@@ -68,7 +69,7 @@ def parseDialog():
     target_seq = []
 
     print("reading lines...")
-    with open(LINES_PATH,"r",encoding="latin1") as f:
+    with io.open(LINES_PATH,"r",encoding="latin1") as f:
         lines_raw = f.read().split("\n")
 
     for line_raw in lines_raw:
