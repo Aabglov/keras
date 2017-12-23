@@ -7,7 +7,7 @@ import os
 import word_helpers
 import pickle
 import time
-import caffeine
+#import caffeine
 import dialog_parser
 
 from random import shuffle
