@@ -4,7 +4,7 @@ import os
 import numpy as np # Used for One-hot encoding
 import json # Used for json helper
 import ast # USed to parse List from string ("['a','b',c']")
-import caffeine
+#import caffeine
 
 import re
 
@@ -121,7 +121,7 @@ def parseDialog():
             else:
                 break
         vocabulary = [t[0] for t in top_vocab]
-        
+
         for token in [GO ,UNK ,PAD ,EOS ,SPLIT]:
             if token not in vocabulary:
                 vocabulary.append(token)
