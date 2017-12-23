@@ -73,7 +73,7 @@ class Batcher:
             end = self.index + self.batch_size
         output = [self.encoder_input[begin:end],
                   self.decoder_input[begin:end],
-                  self.decoder_target[begin:end]]
+                  to_categorical(self.decoder_target[begin:end],num_classes=vocab_len)]
         self.index += 1
         self.index = self.index % self.length
         return output
@@ -151,7 +151,16 @@ padded_target_output = sequence.pad_sequences(target_output_seq, maxlen=max_seq_
 # Turn our sequences into arrays
 encoder_input_data = np.asarray(padded_input,dtype='float32')
 decoder_input_data = np.asarray(padded_target_input ,dtype='float32')
-decoder_target_data = to_categorical(np.asarray(padded_target_output,dtype='float32'),num_classes=vocab_len)
+decoder_target_data = np.asarray(padded_target_output,dtype='float32')
+
+# decoder_target = np.asarray(padded_target_output,dtype='float32')
+# decoder_target_data = np.zeros((decoder_target.shape[0],decoder_target.shape[1],vocab_len))
+# for i in range(decoder_target.shape[0]):
+#     for j in range(decoder_target.shape[1]):
+#         k = int(decoder_target[i,j])
+#         decoder_target_data[i,j,k] = 1
+
+
 
 ######################## MODEL #############################
 # Define an input sequence and process it.
