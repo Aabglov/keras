@@ -127,6 +127,8 @@ vocab_len = len(vocab)
 save_interval = 100
 log_interval = 10
 
+print("vocab length: ",vocab_len)
+
 embedding_dim = 128
 
 # truncate and pad input sequences
