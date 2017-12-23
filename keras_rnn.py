@@ -74,9 +74,9 @@ class Batcher:
         output = [self.encoder_input[begin:end],
                   self.decoder_input[begin:end],
                   to_categorical(self.decoder_target[begin:end],num_classes=vocab_len).reshape((-1,max_seq_len,vocab_len))]
-        print(self.decoder_target[begin:end].shape)
-        print(to_categorical(self.decoder_target[begin:end],num_classes=vocab_len).shape)
-        HODOR
+        #print(self.decoder_target[begin:end].shape)
+        #print(to_categorical(self.decoder_target[begin:end],num_classes=vocab_len).reshape((-1,max_seq_len,vocab_len)).shape)
+        #HODOR
         self.index += 1
         self.index = self.index % self.length
         return output
