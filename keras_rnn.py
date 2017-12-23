@@ -36,9 +36,13 @@ PAD =   dialog_parser.PAD
 EOS =   dialog_parser.EOS
 SPLIT = dialog_parser.SPLIT
 
-def save(obj,name):
-    with open(os.path.join(dir_path,name),"wb+") as f:
-        pickle.dump(obj,f)
+def save(obj,name,protocol=False):
+    if protocol:
+        with open(os.path.join(dir_path,name),"wb+") as f:
+            pickle.dump(obj,f,protocol=protocol)
+    else:
+        with open(os.path.join(dir_path,name),"wb+") as f:
+            pickle.dump(obj,f)
 
 def load(name):
     with open(os.path.join(dir_path,name),"rb") as f:
@@ -81,6 +85,12 @@ try:
     vocab = load("vocab.pkl")
     print("Loaded prepared data...")
 
+    # save(input_seq,"inputs.pkl",protocol=2)
+    # save(target_seq,"targets.pkl",protocol=2)
+    # save(convs,"convs.pkl",protocol=2)
+    # save(vocab,"vocab.pkl",protocol=2)
+
+
 except Exception as e:
     print("FAILED TO LOAD:")
     print(e)
@@ -91,6 +101,7 @@ except Exception as e:
     save(target_seq,"targets.pkl")
     save(convs,"convs.pkl")
     save(vocab,"vocab.pkl")
+
 
 
 ######################## DATA PREP ########################
