@@ -30,7 +30,7 @@ REMOVE_SINGLES = False
 SYMBOLS = ["~", "`", "!", "<", ">", ".", ",", \
            ":", ";", "\"", "'", "\\", "/", "(", \
            ")", "[", "]", "^", "?", "-", "+", \
-           "{", "}", "&", \
+           "{", "}", "&", "'",\
            # Separate numbers into their own entries for vocabulary.
            # We don't want to have every 3 digit number as its own word.
            "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
