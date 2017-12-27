@@ -116,7 +116,7 @@ def parseDialog():
         top_vocab = []
         count = 0
         for s in sorted_vocab_occur:
-            if count < 5000:
+            if count < VOCAB_TOP:
                 top_vocab.append(s)
                 count += 1
             else:
