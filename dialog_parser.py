@@ -35,7 +35,7 @@ SYMBOLS = ["~", "`", "!", "<", ">", ".", ",", \
            # We don't want to have every 3 digit number as its own word.
            "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
 
-VOCAB_TOP = 5000
+VOCAB_TOP = 30000 #5000
 
 class Conversation:
     def __init__(self,subject1,subject2,lines):

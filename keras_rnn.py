@@ -12,7 +12,7 @@ import dialog_parser
 
 from random import shuffle
 
-from keras.models import Model
+from keras.models import Model,load_model
 from keras.layers import Input, LSTM, Dense, Embedding
 from keras.preprocessing import sequence
 from keras.utils import to_categorical
@@ -25,6 +25,7 @@ np.random.seed(36)
 SAVE_DIR = "conv"
 CHECKPOINT_NAME = "conv_steps.ckpt"
 PICKLE_PATH = "conv_tokenized.pkl"
+FINAL_SAVE_PATH = 'saved/rnn/s2s_final.h5'
 DEBUG = False
 dir_path = os.path.dirname(os.path.realpath(__file__))
 model_path = os.path.join(dir_path,"saved",SAVE_DIR,CHECKPOINT_NAME)
@@ -164,26 +165,31 @@ decoder_target_data = np.asarray(padded_target_output,dtype='float32')
 
 
 ######################## MODEL #############################
-# Define an input sequence and process it.
-encoder_inputs = Input(shape=(max_seq_len,))
+try:
+    model = load_model(FINAL_SAVE_PATH)
+    print("Loaded saved model")
+except:
+    # Define an input sequence and process it.
+    encoder_inputs = Input(shape=(max_seq_len,))
+    print("No saved model, creating...")
 
-x = Embedding(vocab_len, embedding_dim,input_length=max_seq_len)(encoder_inputs)
-x, state_h, state_c = LSTM(latent_dim,return_sequences=True,return_state=True)(x)
-x, state_h, state_c = LSTM(latent_dim,return_sequences=True,return_state=True)(x)
-encoder_states = [state_h, state_c]
+    x = Embedding(vocab_len, embedding_dim,input_length=max_seq_len)(encoder_inputs)
+    x, state_h, state_c = LSTM(latent_dim,return_sequences=True,return_state=True)(x)
+    x, state_h, state_c = LSTM(latent_dim,return_sequences=True,return_state=True)(x)
+    encoder_states = [state_h, state_c]
 
-# Set up the decoder, using `encoder_states` as initial state.
-decoder_inputs = Input(shape=(max_seq_len,))
-x = Embedding(vocab_len, embedding_dim,input_length=max_seq_len)(decoder_inputs)
-x = LSTM(latent_dim, return_sequences=True)(x, initial_state=encoder_states)
-x = LSTM(latent_dim, return_sequences=True)(x)
-decoder_outputs = Dense(vocab_len, activation='softmax')(x)
-# Define the model that will turn
-# `encoder_input_data` & `decoder_input_data` into `decoder_target_data`
-model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
+    # Set up the decoder, using `encoder_states` as initial state.
+    decoder_inputs = Input(shape=(max_seq_len,))
+    x = Embedding(vocab_len, embedding_dim,input_length=max_seq_len)(decoder_inputs)
+    x = LSTM(latent_dim, return_sequences=True)(x, initial_state=encoder_states)
+    x = LSTM(latent_dim, return_sequences=True)(x)
+    decoder_outputs = Dense(vocab_len, activation='softmax')(x)
+    # Define the model that will turn
+    # `encoder_input_data` & `decoder_input_data` into `decoder_target_data`
+    model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
 
-# Compile & run training
-model.compile(optimizer='adam', loss='categorical_crossentropy')
+    # Compile & run training
+    model.compile(optimizer='adam', loss='categorical_crossentropy')
 
 # Note that `decoder_target_data` needs to be one-hot encoded,
 # rather than sequences of integers like `decoder_input_data`!
@@ -199,12 +205,12 @@ batcher = Batcher(encoder_input_data, decoder_input_data, decoder_target_data, b
 def printEncoderInput(encoder_input):
     enc = encoder_input[0]
     enc_words = [reverse_vocab_lookup[w] for w in enc]
-    print(" ".join(enc_words))
+    print("INPUT"," ".join(enc_words))
 
-def printPred(pred_vec):
+def printPred(pred_vec,label="PRED"):
     pred = pred_vec[0]
     pred_words = [np.random.choice(vocab,size=1,p=w)[0] for w in pred]
-    print(" ".join(pred_words))
+    print(label," ".join(pred_words))
 
 num_batches = batcher.length // batcher.batch_size
 
@@ -224,6 +230,7 @@ try:
                 pred = model.predict([encoder_input_batch, decoder_input_batch])
                 printEncoderInput(encoder_input_batch)
                 printPred(pred)
+                printPred(decoder_target_batch,label="TRUE")
 
             # If at save interval => save generated image samples
             if _ % save_interval == 0:
@@ -236,7 +243,7 @@ except KeyboardInterrupt:
 
 
 # Save model
-model.save('saved/rnn/s2s_final.h5')
+model.save(FINAL_SAVE_PATH)
 
 HODOR
 
