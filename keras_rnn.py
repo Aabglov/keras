@@ -74,9 +74,7 @@ class Batcher:
         output = [self.encoder_input[begin:end],
                   self.decoder_input[begin:end],
                   to_categorical(self.decoder_target[begin:end],num_classes=vocab_len).reshape((-1,max_seq_len,vocab_len))]
-        #print(self.decoder_target[begin:end].shape)
-        #print(to_categorical(self.decoder_target[begin:end],num_classes=vocab_len).reshape((-1,max_seq_len,vocab_len)).shape)
-        #HODOR
+
         self.index += 1
         self.index = self.index % self.length
         return output
@@ -170,13 +168,15 @@ decoder_target_data = np.asarray(padded_target_output,dtype='float32')
 encoder_inputs = Input(shape=(max_seq_len,))
 
 x = Embedding(vocab_len, embedding_dim,input_length=max_seq_len)(encoder_inputs)
-x, state_h, state_c = LSTM(latent_dim,return_state=True)(x)
+x, state_h, state_c = LSTM(latent_dim,return_sequences=True,return_state=True)(x)
+x, state_h, state_c = LSTM(latent_dim,return_sequences=True,return_state=True)(x)
 encoder_states = [state_h, state_c]
 
 # Set up the decoder, using `encoder_states` as initial state.
 decoder_inputs = Input(shape=(max_seq_len,))
 x = Embedding(vocab_len, embedding_dim,input_length=max_seq_len)(decoder_inputs)
 x = LSTM(latent_dim, return_sequences=True)(x, initial_state=encoder_states)
+x = LSTM(latent_dim, return_sequences=True)(x)
 decoder_outputs = Dense(vocab_len, activation='softmax')(x)
 # Define the model that will turn
 # `encoder_input_data` & `decoder_input_data` into `decoder_target_data`
@@ -205,17 +205,19 @@ def printPred(pred_vec):
     pred_words = [reverse_vocab_lookup[np.argmax(w)] for w in pred]
     print(" ".join(pred_words))
 
+num_batches = batcher.length // batcher.batch_size
+
 try:
     for epoch in range(epochs):
         # Iterate through our dataset
-        for _ in range(batcher.length // batcher.batch_size):
+        for _ in range(num_batches):
             encoder_input_batch,decoder_input_batch,decoder_target_batch = batcher.next()
 
             # Train the generator
             loss = model.train_on_batch([encoder_input_batch, decoder_input_batch], decoder_target_batch)
 
             # Plot the progress
-            print("%d loss: %f" % (epoch, loss))
+            print("%d loss: %f" % ((epoch*num_batches) + _, loss))
 
             if _ % log_interval == 0:
                 pred = model.predict([encoder_input_batch, decoder_input_batch])
