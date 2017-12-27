@@ -200,9 +200,10 @@ def printEncoderInput(encoder_input):
     enc = encoder_input[0]
     enc_words = [reverse_vocab_lookup[w] for w in enc]
     print(" ".join(enc_words))
+
 def printPred(pred_vec):
     pred = pred_vec[0]
-    pred_words = [reverse_vocab_lookup[np.argmax(w)] for w in pred]
+    pred_words = [np.random.choice(vocab,size=1,p=w)[0] for w in pred]
     print(" ".join(pred_words))
 
 num_batches = batcher.length // batcher.batch_size
