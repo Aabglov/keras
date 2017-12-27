@@ -123,7 +123,7 @@ def parseDialog():
                 break
         vocabulary = [t[0] for t in top_vocab]
 
-        for token in [GO ,UNK ,PAD ,EOS ,SPLIT]:
+        for token in [GO ,UNK ,PAD ,EOS ,SPLIT] + SYMBOLS:
             if token not in vocabulary:
                 vocabulary.append(token)
 

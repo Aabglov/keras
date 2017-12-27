@@ -131,7 +131,7 @@ if DEBUG:
 
 batch_size = 64  # Batch size for training.
 epochs = 100  # Number of epochs to train for.
-latent_dim = 1024#256  # Latent dimensionality of the encoding space.
+latent_dim = 256  # Latent dimensionality of the encoding space.
 num_samples = 10000  # Number of samples to train on.
 # max length of 100 excludes about 1200 of 300k samples.
 # max length of 200 excludes about 100 of 300k
