@@ -134,7 +134,7 @@ latent_dim = 256  # Latent dimensionality of the encoding space.
 num_samples = 10000  # Number of samples to train on.
 # max length of 100 excludes about 1200 of 300k samples.
 # max length of 200 excludes about 100 of 300k
-max_seq_len = 100
+max_seq_len = 30
 vocab_len = len(vocab)
 save_interval = 100
 log_interval = 10
