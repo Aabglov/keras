@@ -193,53 +193,53 @@ except:
 
 # Note that `decoder_target_data` needs to be one-hot encoded,
 # rather than sequences of integers like `decoder_input_data`!
-#model.fit([encoder_input_data, decoder_input_data], decoder_target_data,
-#          batch_size=batch_size,
-#          epochs=epochs,
-#          validation_split=0.2)
+model.fit([encoder_input_data, decoder_input_data], decoder_target_data,
+         batch_size=batch_size,
+         epochs=epochs,
+         validation_split=0.2)
 
-batcher = Batcher(encoder_input_data, decoder_input_data, decoder_target_data, batch_size)
-
-# Define helper functions for printing
-# conversations for training evaluation
-def printEncoderInput(encoder_input):
-    enc = encoder_input[0]
-    enc_words = [reverse_vocab_lookup[w] for w in enc]
-    print("INPUT: " + " ".join(enc_words))
-
-def printPred(pred_vec,label="PRED"):
-    pred = pred_vec[0]
-    pred_words = [np.random.choice(vocab,size=1,p=w)[0] for w in pred]
-    print(label + ": " + " ".join(pred_words))
-
-num_batches = batcher.length // batcher.batch_size
-
-try:
-    for epoch in range(epochs):
-        # Iterate through our dataset
-        for _ in range(num_batches):
-            encoder_input_batch,decoder_input_batch,decoder_target_batch = batcher.next()
-
-            # Train the generator
-            loss = model.train_on_batch([encoder_input_batch, decoder_input_batch], decoder_target_batch)
-
-            # Plot the progress
-            iteration = (epoch*num_batches) + _
-            print("%d loss: %f" % (iteration, loss))
-
-            if _ % log_interval == 0:
-                pred = model.predict([encoder_input_batch, decoder_input_batch])
-                printEncoderInput(encoder_input_batch)
-                printPred(pred)
-                printPred(decoder_target_batch,label="TRUE")
-
-            # If at save interval => save generated image samples
-            if _ % save_interval == 0:
-                model.save('saved/rnn/s2s_{}.h5'.format(iteration))
-
-
-except KeyboardInterrupt:
-    print("Early exit")
+# batcher = Batcher(encoder_input_data, decoder_input_data, decoder_target_data, batch_size)
+#
+# # Define helper functions for printing
+# # conversations for training evaluation
+# def printEncoderInput(encoder_input):
+#     enc = encoder_input[0]
+#     enc_words = [reverse_vocab_lookup[w] for w in enc]
+#     print("INPUT: " + " ".join(enc_words))
+#
+# def printPred(pred_vec,label="PRED"):
+#     pred = pred_vec[0]
+#     pred_words = [np.random.choice(vocab,size=1,p=w)[0] for w in pred]
+#     print(label + ": " + " ".join(pred_words))
+#
+# num_batches = batcher.length // batcher.batch_size
+#
+# try:
+#     for epoch in range(epochs):
+#         # Iterate through our dataset
+#         for _ in range(num_batches):
+#             encoder_input_batch,decoder_input_batch,decoder_target_batch = batcher.next()
+#
+#             # Train the generator
+#             loss = model.train_on_batch([encoder_input_batch, decoder_input_batch], decoder_target_batch)
+#
+#             # Plot the progress
+#             iteration = (epoch*num_batches) + _
+#             print("%d loss: %f" % (iteration, loss))
+#
+#             if _ % log_interval == 0:
+#                 pred = model.predict([encoder_input_batch, decoder_input_batch])
+#                 printEncoderInput(encoder_input_batch)
+#                 printPred(pred)
+#                 printPred(decoder_target_batch,label="TRUE")
+#
+#             # If at save interval => save generated image samples
+#             if _ % save_interval == 0:
+#                 model.save('saved/rnn/s2s_{}.h5'.format(iteration))
+#
+#
+# except KeyboardInterrupt:
+#     print("Early exit")
 
 
 
