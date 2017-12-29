@@ -155,6 +155,15 @@ encoder_input_data = np.asarray(padded_input,dtype='float32')
 decoder_input_data = np.asarray(padded_target_input ,dtype='float32')
 decoder_target_data = np.asarray(padded_target_output,dtype='float32')
 
+print(decoder_input_data.shape)
+print(decoder_target_data.shape)
+decoder_target_hold = []
+for d in decoder_target_data:
+    decoder_target_hold.append(to_categorical(d,num_classes=vocab_len))
+decoder_target_data = np.asarray(decoder_target_hold)
+print(decoder_target_data)
+
+
 # decoder_target = np.asarray(padded_target_output,dtype='float32')
 # decoder_target_data = np.zeros((decoder_target.shape[0],decoder_target.shape[1],vocab_len))
 # for i in range(decoder_target.shape[0]):
