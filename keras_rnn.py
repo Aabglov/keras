@@ -224,7 +224,8 @@ try:
             loss = model.train_on_batch([encoder_input_batch, decoder_input_batch], decoder_target_batch)
 
             # Plot the progress
-            print("%d loss: %f" % ((epoch*num_batches) + _, loss))
+            iteration = (epoch*num_batches) + _
+            print("%d loss: %f" % (iteration, loss))
 
             if _ % log_interval == 0:
                 pred = model.predict([encoder_input_batch, decoder_input_batch])
@@ -234,7 +235,7 @@ try:
 
             # If at save interval => save generated image samples
             if _ % save_interval == 0:
-                model.save('saved/rnn/s2s_{}.h5'.format(epoch))
+                model.save('saved/rnn/s2s_{}.h5'.format(iteration))
 
 
 except KeyboardInterrupt:
