@@ -202,7 +202,7 @@ except:
 # rather than sequences of integers like `decoder_input_data`!
 num_samples = encoder_input_data.shape[0]
 model.fit([encoder_input_data, decoder_input_data, decoder_target_data],
-         np.zeros((num_samples,max_seq_len,vocab_len)),
+         np.zeros((num_samples,max_seq_len,1)),
          batch_size=batch_size,
          epochs=epochs,
          validation_split=0.2)
