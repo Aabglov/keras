@@ -14,9 +14,12 @@ from random import shuffle
 
 from keras.models import Model,load_model
 from keras.layers import Input, LSTM, Dense, Embedding
+from keras import backend as K
 from keras.preprocessing import sequence
 from keras.utils import to_categorical
+from keras.losses import categorical_crossentropy
 import numpy as np
+from tensorflow import one_hot#sparse_softmax_cross_entropy_with_logits
 # fix random seed for reproducibility
 np.random.seed(36)
 
@@ -74,7 +77,8 @@ class Batcher:
             end = self.index + self.batch_size
         output = [self.encoder_input[begin:end],
                   self.decoder_input[begin:end],
-                  to_categorical(self.decoder_target[begin:end],num_classes=vocab_len).reshape((-1,max_seq_len,vocab_len))]
+                  #to_categorical(self.decoder_target[begin:end],num_classes=vocab_len).reshape((-1,max_seq_len,vocab_len))]
+                  self.decoder_target[begin:end]]
 
         self.index += 1
         self.index = self.index % self.length
@@ -118,7 +122,7 @@ target_input_seq = []
 target_output_seq = []
 for i in range(len(target_seq)):
     k = target_seq[i]
-    target_seq[i] = [x for x in k if x != 0]
+    target_seq[i] = [x for x in k]# if x != 0]
     target_input_seq.append([vocab_lookup[GO]] + target_seq[i])
     target_output_seq.append(target_seq[i] + [vocab_lookup[EOS]])
 
@@ -129,6 +133,7 @@ if DEBUG:
     print(convs[0].lines[1])
 
 
+vocab_len = len(vocab)
 batch_size = 64  # Batch size for training.
 epochs = 100  # Number of epochs to train for.
 latent_dim = 256  # Latent dimensionality of the encoding space.
@@ -136,7 +141,6 @@ num_samples = 10000  # Number of samples to train on.
 # max length of 100 excludes about 1200 of 300k samples.
 # max length of 200 excludes about 100 of 300k
 max_seq_len = 30
-vocab_len = len(vocab)
 save_interval = 100
 log_interval = 10
 
@@ -155,14 +159,13 @@ encoder_input_data = np.asarray(padded_input,dtype='float32')
 decoder_input_data = np.asarray(padded_target_input ,dtype='float32')
 decoder_target_data = np.asarray(padded_target_output,dtype='float32')
 
-# decoder_target = np.asarray(padded_target_output,dtype='float32')
-# decoder_target_data = np.zeros((decoder_target.shape[0],decoder_target.shape[1],vocab_len))
-# for i in range(decoder_target.shape[0]):
-#     for j in range(decoder_target.shape[1]):
-#         k = int(decoder_target[i,j])
-#         decoder_target_data[i,j,k] = 1
-
-
+def hack_loss(y_true_uncat):
+    def custom_loss(y_true, y_pred):
+        #y_true_cat = to_categorical(y_true,num_classes=vocab_len)
+        y_true_cat = one_hot(y_true_uncat,depth=vocab_len)
+        return categorical_crossentropy(y_true_cat,y_pred)
+        #return nn.sparse_softmax_cross_entropy_with_logits(labels=y_true_uncat,logits=y_pred)
+    return custom_loss
 
 ######################## MODEL #############################
 try:
@@ -178,18 +181,22 @@ except:
     x, state_h, state_c = LSTM(latent_dim,return_sequences=True,return_state=True)(x)
     encoder_states = [state_h, state_c]
 
+    decoder_target_input = Input(shape=(max_seq_len,),dtype='int32')
+
     # Set up the decoder, using `encoder_states` as initial state.
     decoder_inputs = Input(shape=(max_seq_len,))
     x = Embedding(vocab_len, embedding_dim,input_length=max_seq_len)(decoder_inputs)
     x = LSTM(latent_dim, return_sequences=True)(x, initial_state=encoder_states)
     x = LSTM(latent_dim, return_sequences=True)(x)
-    decoder_outputs = Dense(vocab_len, activation='softmax')(x)
+    decoder_outputs = Dense(vocab_len, activation="softmax")(x)
     # Define the model that will turn
     # `encoder_input_data` & `decoder_input_data` into `decoder_target_data`
-    model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
+    model = Model([encoder_inputs, decoder_inputs, decoder_target_input], decoder_outputs)
+
+
 
     # Compile & run training
-    model.compile(optimizer='adam', loss='categorical_crossentropy')
+    model.compile(optimizer='adam', loss=hack_loss(decoder_target_input))
 
 # Note that `decoder_target_data` needs to be one-hot encoded,
 # rather than sequences of integers like `decoder_input_data`!
@@ -200,15 +207,21 @@ except:
 
 batcher = Batcher(encoder_input_data, decoder_input_data, decoder_target_data, batch_size)
 
+def softmax(x):
+    """Compute softmax values for each sets of scores in x."""
+    e_x = np.exp(x - np.max(x))
+    return e_x / e_x.sum(axis=-1)
+
 # Define helper functions for printing
 # conversations for training evaluation
-def printEncoderInput(encoder_input):
+def printEncoderInput(encoder_input,label="INPUT"):
     enc = encoder_input[0]
     enc_words = [reverse_vocab_lookup[w] for w in enc]
-    print("INPUT: " + " ".join(enc_words))
+    print(label + ": ".join(enc_words))
 
 def printPred(pred_vec,label="PRED"):
     pred = pred_vec[0]
+    pred_words = []
     pred_words = [np.random.choice(vocab,size=1,p=w)[0] for w in pred]
     print(label + ": " + " ".join(pred_words))
 
@@ -220,18 +233,20 @@ try:
         for _ in range(num_batches):
             encoder_input_batch,decoder_input_batch,decoder_target_batch = batcher.next()
 
+            unused_output = np.zeros((batch_size,max_seq_len,vocab_len))
             # Train the generator
-            loss = model.train_on_batch([encoder_input_batch, decoder_input_batch], decoder_target_batch)
+            loss = model.train_on_batch([encoder_input_batch, decoder_input_batch, decoder_target_batch], unused_output)
 
             # Plot the progress
             iteration = (epoch*num_batches) + _
             print("%d loss: %f" % (iteration, loss))
 
             if _ % log_interval == 0:
-                pred = model.predict([encoder_input_batch, decoder_input_batch])
+                unused_pred = np.zeros(decoder_target_batch.shape)
+                pred = model.predict([encoder_input_batch, decoder_input_batch, unused_pred])
                 printEncoderInput(encoder_input_batch)
                 printPred(pred)
-                printPred(decoder_target_batch,label="TRUE")
+                printEncoderInput(decoder_target_batch,"TRUE")
 
             # If at save interval => save generated image samples
             if _ % save_interval == 0:
