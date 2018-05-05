@@ -3,13 +3,10 @@
 import os
 import numpy as np
 import random
-import os
-import word_helpers
+import sys
 import pickle
 import time
 #import caffeine
-import dialog_parser
-
 from random import shuffle
 
 from keras.models import Model,load_model
@@ -19,118 +16,96 @@ from keras.preprocessing import sequence
 from keras.utils import to_categorical
 from keras.losses import categorical_crossentropy
 import numpy as np
-from tensorflow import one_hot#sparse_softmax_cross_entropy_with_logits
+from tensorflow import one_hot
 # fix random seed for reproducibility
 np.random.seed(36)
 
 
 # PATHS -- absolute
-SAVE_DIR = "conv"
-CHECKPOINT_NAME = "conv_steps.ckpt"
-PICKLE_PATH = "conv_tokenized.pkl"
+SAVE_DIR = "rap"
+CHECKPOINT_NAME = "rap_char_steps.ckpt"
+DATA_NAME = "ohhla.txt"
+PICKLE_PATH = "rap_rh.pkl"
+SUBDIR_NAME = "rap"
 FINAL_SAVE_PATH = 'saved/rnn/s2s_final.h5'
 DEBUG = False
-dir_path = os.path.dirname(os.path.realpath(__file__))
-model_path = os.path.join(dir_path,"saved",SAVE_DIR,CHECKPOINT_NAME)
-checkpoint_path = os.path.join(dir_path,"saved",SAVE_DIR)
+DIR_PATH = os.path.dirname(os.path.realpath(__file__))
+MODEL_PATH = os.path.join(DIR_PATH,"saved",SAVE_DIR,CHECKPOINT_NAME)
+CHECKPOINT_PATH = os.path.join(DIR_PATH,"saved",SAVE_DIR)
 
-GO =    dialog_parser.GO
-UNK =   dialog_parser.UNK
-PAD =   dialog_parser.PAD
-EOS =   dialog_parser.EOS
-SPLIT = dialog_parser.SPLIT
+# Retrieve the helper functions in the other repo 
+TENSORFLOW_PATH = DIR_PATH.replace("keras","tensorflow")
+sys.path.insert(0, TENSORFLOW_PATH)
+from helpers import rap_helper,rap_parser
+
 
 def save(obj,name,protocol=False):
     if protocol:
-        with open(os.path.join(dir_path,name),"wb+") as f:
+        with open(os.path.join(DIR_PATH,name),"wb+") as f:
             pickle.dump(obj,f,protocol=protocol)
     else:
-        with open(os.path.join(dir_path,name),"wb+") as f:
+        with open(os.path.join(DIR_PATH,name),"wb+") as f:
             pickle.dump(obj,f)
 
 def load(name):
-    with open(os.path.join(dir_path,name),"rb") as f:
+    with open(os.path.join(DIR_PATH,name),"rb") as f:
         return pickle.load(f)
 
 
-class Batcher:
-    def __init__(self, encoder_input_data, decoder_input_data, decoder_target_data, batch_size):
-        self.encoder_input =  encoder_input_data
-        self.decoder_input =  decoder_input_data
-        self.decoder_target = decoder_target_data
-        self.index = 0
-        self.batch_size = batch_size
-        # This should be the same as using
-        # decoder_input and decoder_target because
-        # They're all the same length
-        self.length = len(self.encoder_input)
+DIR_PATH = os.path.dirname(os.path.realpath(__file__))
+MODEL_PATH = os.path.join(DIR_PATH,"saved",SAVE_DIR,CHECKPOINT_NAME)
+CHECKPOINT_PATH = os.path.join(DIR_PATH,"saved",SAVE_DIR)
+data_path = os.path.join(DIR_PATH,"data",SUBDIR_NAME,DATA_NAME)
 
-    def next(self):
-        begin = self.index
-        # If the batch would go past the end of
-        # our dataset we instead return
-        # the remaining entries only.
-        # Prevents overflow
-        if (self.index + self.batch_size) > self.length:
-            end = -1
-        else:
-            end = self.index + self.batch_size
-        output = [self.encoder_input[begin:end],
-                  self.decoder_input[begin:end],
-                  #to_categorical(self.decoder_target[begin:end],num_classes=vocab_len).reshape((-1,max_seq_len,vocab_len))]
-                  self.decoder_target[begin:end]]
-
-        self.index += 1
-        self.index = self.index % self.length
-        return output
+MAX_SEQ_LEN = 100
 
 try:
-    input_seq = load("inputs.pkl")
-    target_seq = load("targets.pkl")
-    convs = load("convs.pkl")
-    vocab = load("vocab.pkl")
-    print("Loaded prepared data...")
-
-    # save(input_seq,"inputs.pkl",protocol=2)
-    # save(target_seq,"targets.pkl",protocol=2)
-    # save(convs,"convs.pkl",protocol=2)
-    # save(vocab,"vocab.pkl",protocol=2)
-
-
+    with open(os.path.join(CHECKPOINT_PATH,PICKLE_PATH),"rb") as f:
+        RH = pickle.load(f)
 except Exception as e:
-    print("FAILED TO LOAD:")
     print(e)
+    songs,parsed_vocab = rap_parser.getSongs()
 
-    input_seq,target_seq,convs,vocab = dialog_parser.parseDialog()
+    RH = rap_helper.SongBatcher(songs,parsed_vocab)
 
-    save(input_seq,"inputs.pkl")
-    save(target_seq,"targets.pkl")
-    save(convs,"convs.pkl")
-    save(vocab,"vocab.pkl")
+    # Length investigation
+    # Looks like there are only about 1000 songs (out of 19k)
+    # that contain batches 100 words long or longer
+    REMOVE_BIG_SEQ = True
+    if REMOVE_BIG_SEQ:
+        len_dict = {}
+        songs_to_remove = []
+        for i in range(len(RH.songs)):
+            s = RH.songs[i]
+            for line in s:
+                l = len(line)
+                if l not in len_dict:
+                    len_dict[l] = [line]
+                else:
+                    len_dict[l].append(line)
+                if l > MAX_SEQ_LEN:
+                    songs_to_remove.append(i)
+        k = list(len_dict.keys())
+        k.sort()
+        # total = 0
+        # for i in [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 127, 128, 129, 130, 131, 133, 134, 136, 140, 142, 143, 144, 146, 147, 148, 150, 151, 152, 153, 154, 161, 162, 163, 170, 171, 172, 173, 180, 187, 198, 202, 203, 209, 213, 215, 238, 245, 249, 264, 312, 316, 565]:
+        #     total += len(len_dict[i])
+        # print("TOTAL: {}".format(total))
+        songs_to_remove = list(set(songs_to_remove))
+        print("Number of songs to remove: {}".format(len(songs_to_remove)))
+        print("Number of songs before removal: {}".format(len(RH.songs)))
+        songs_to_remove.sort()
+        for i in songs_to_remove[::-1]:
+            del RH.songs[i]
+        print("Number of songs after removal: {}".format(len(RH.songs)))
+
+    print("parsed vocab length: {}".format(len(parsed_vocab)))
+
+    # Save our Rap Helper
+    with open(os.path.join(CHECKPOINT_PATH,PICKLE_PATH),"wb") as f:
+        pickle.dump(RH,f)
 
 
-
-######################## DATA PREP ########################
-vocab_lookup = {}
-reverse_vocab_lookup = {}
-for i in range(len(vocab)):
-    word = vocab[i]
-    vocab_lookup[word] = i
-    reverse_vocab_lookup[i] = word
-
-target_input_seq = []
-target_output_seq = []
-for i in range(len(target_seq)):
-    k = target_seq[i]
-    target_seq[i] = [x for x in k]# if x != 0]
-    target_input_seq.append([vocab_lookup[GO]] + target_seq[i])
-    target_output_seq.append(target_seq[i] + [vocab_lookup[EOS]])
-
-if DEBUG:
-    print(input_seq[1])
-    print(" ".join([reverse_vocab_lookup[i] for i in input_seq[1]]))
-    print(" ".join([reverse_vocab_lookup[i] for i in target_seq[0]]))
-    print(convs[0].lines[1])
 
 
 vocab_len = len(vocab)

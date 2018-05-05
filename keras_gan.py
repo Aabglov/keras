@@ -15,12 +15,13 @@ import numpy as np
 from PIL import Image
 from random import shuffle
 
-
 DIR_PATH = os.path.dirname(os.path.realpath(__file__))
+TENSORFLOW_PATH = DIR_PATH.replace("keras","tensorflow")
+
 #DIR_PATH = "/Users/keganrabil/Desktop/WIP/tensorflow"
-DATA_PATH = os.path.join("/Users/keganrabil/Desktop/WIP/tensorflow","data","celeb")
-GEN_MODEL_PATH = os.path.join(DIR_PATH,"saved_models","gen_model.h5")
-DISC_MODEL_PATH = os.path.join(DIR_PATH,"saved_models","disc_model.h5")
+DATA_PATH = os.path.join(TENSORFLOW_PATH,"data","celeb")
+GEN_MODEL_PATH = os.path.join(DIR_PATH,"saved","gan","saved_models","gen_model.h5")
+DISC_MODEL_PATH = os.path.join(DIR_PATH,"saved","gan","saved_models","disc_model.h5")
 
 # Prepare data
 class CelebImageBatcher:
@@ -38,6 +39,7 @@ class CelebImageBatcher:
                 self.data_dict[count] = os.path.join(root, name)
                 count += 1
         self.end = count
+
 
     def next(self):
         batch = []
@@ -273,7 +275,7 @@ class GAN():
                 axs[i,j].imshow(gen_imgs[cnt, :,:,:])#, cmap='gray')
                 axs[i,j].axis('off')
                 cnt += 1
-        fig.savefig("gan/images/face_%d.png" % epoch)
+        fig.savefig("saved/gan/images/face_%d.png" % epoch)
         plt.close()
 
 
