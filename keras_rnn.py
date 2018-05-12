@@ -33,7 +33,7 @@ DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 MODEL_PATH = os.path.join(DIR_PATH,"saved",SAVE_DIR,CHECKPOINT_NAME)
 CHECKPOINT_PATH = os.path.join(DIR_PATH,"saved",SAVE_DIR)
 
-# Retrieve the helper functions in the other repo 
+# Retrieve the helper functions in the other repo
 TENSORFLOW_PATH = DIR_PATH.replace("keras","tensorflow")
 sys.path.insert(0, TENSORFLOW_PATH)
 from helpers import rap_helper,rap_parser
@@ -106,7 +106,97 @@ except Exception as e:
         pickle.dump(RH,f)
 
 
+class Seq2Seq:
+    def __init__(self,RH):
+        # TRAINING PARAMETERS
+        self.LEARNING_RATE = 3e-4
+        self.GRAD_CLIP = 5.0
+        self.LSTM_SIZE = 512
+        self.NUM_LAYERS = 3
+        # Since songs can have differing numbers of lines
+        # it doesn't make sense to have multiple songs represented in a batch.
+        # At least not yet.
+        self.BATCH_SIZE = 1
+        self.NUM_EPOCHS = 100
+        self.NUM_STEPS = 100 # 50
+        self.DISPLAY_STEP = 10#25
+        self.SAVE_STEP = 1
+        self.DECAY_RATE = 0.97
+        self.DECAY_STEP = 5
+        self.DROPOUT_KEEP_PROB = 0.8 #0.5
+        self.TEMPERATURE = 1.0
+        self.NUM_PRED = 50
+        self.already_trained = 0
+        self.N_CLASSES = 98
+        self.vocab_obj = RH.vocab
+        self.vocab = vocab_obj.vocab
+        self.PRIME_TEXT = u"»"
 
+        self.input_shape = (None,1)
+        optimizer = Adam(0.0002, 0.5)
+
+        # Build and compile the decoder
+        try:
+            self.decoder = load_model(DEC_MODEL_PATH)
+        except OSError as e:
+            print("decoder model not found, building...")
+            self.decoder = self.build_decoder()
+        self.decoder.compile(loss='binary_crossentropy',
+            optimizer=optimizer,
+            metrics=['accuracy'])
+
+        # Build and compile the encoder
+        try:
+            self.encoder = load_model(ENC_MODEL_PATH)
+        except OSError as e:
+            print("encoder model not found, building...")
+            self.encoder = self.build_encoder()
+        self.encoder.compile(loss='binary_crossentropy', optimizer=optimizer)
+
+        # The encoder takes noise as input and generated imgs
+        input = Input(shape=(self.BATCH_SIZE,1))
+        encoder_output,state_h,state_c = self.encoder(z)
+
+        # The valid takes generated images as input and determines validity
+        decoder_output = self.decoder(encoder_output)
+
+        # The combined model  (stacked encoder and decoder) takes
+        # noise as input => generates images => determines validity
+        self.combined = Model(input,decoder_output)
+        self.combined.compile(loss='binary_crossentropy', optimizer=optimizer)
+
+    def build_encoder(self):
+
+        in_shape = (self.BATCH_SIZE,1)
+        in_batch = Input(shape=in_shape)
+
+        model = Sequential()
+        model.add(Embedding(self.N_CLASSES, self.LSTM_SIZE))
+        model.add(LSTM(self.LSTM_SIZE, return_state=False))
+        model.add(LSTM(self.LSTM_SIZE, return_state=False))
+        model.add(LSTM(self.LSTM_SIZE, return_state=True))
+
+        model.summary()
+
+        encoder_output,state_h,state_c = model(in_batch)
+
+        return Model(in_batch,encoder_output,state_h,state_c)
+
+    def build_decoder(self):
+
+        in_shape = (self.BATCH_SIZE,1)
+        in_batch = Input(shape=in_shape)
+
+        model = Sequential()
+        model.add(LSTM(self.LSTM_SIZE, return_state=True))
+        model.add(LSTM(self.LSTM_SIZE, return_state=True))
+        model.add(LSTM(self.LSTM_SIZE, return_state=True))
+
+        model.summary()
+
+        encoder_output = model(in_batch)
+
+        return Model(in_batch,encoder_output)
 
 vocab_len = len(vocab)
 batch_size = 64  # Batch size for training.
@@ -122,192 +212,3 @@ log_interval = 10
 print("vocab length: ",vocab_len)
 
 embedding_dim = 128
-
-# truncate and pad input sequences
-pad_val = vocab_lookup[PAD]
-padded_input = sequence.pad_sequences(input_seq, maxlen=max_seq_len,value=pad_val)
-padded_target_input = sequence.pad_sequences(target_input_seq, maxlen=max_seq_len,value=pad_val)
-padded_target_output = sequence.pad_sequences(target_output_seq, maxlen=max_seq_len,value=pad_val)
-
-# Turn our sequences into arrays
-encoder_input_data = np.asarray(padded_input,dtype='float32')
-decoder_input_data = np.asarray(padded_target_input ,dtype='float32')
-decoder_target_data = np.asarray(padded_target_output,dtype='float32')
-
-def hack_loss(y_true_uncat):
-    def custom_loss(y_true, y_pred):
-        #y_true_cat = to_categorical(y_true,num_classes=vocab_len)
-        y_true_cat = one_hot(y_true_uncat,depth=vocab_len)
-        return categorical_crossentropy(y_true_cat,y_pred)
-        #return nn.sparse_softmax_cross_entropy_with_logits(labels=y_true_uncat,logits=y_pred)
-    return custom_loss
-
-######################## MODEL #############################
-try:
-    model = load_model(FINAL_SAVE_PATH)
-    print("Loaded saved model")
-except:
-    # Define an input sequence and process it.
-    encoder_inputs = Input(shape=(max_seq_len,))
-    print("No saved model, creating...")
-
-    x = Embedding(vocab_len, embedding_dim,input_length=max_seq_len)(encoder_inputs)
-    x, state_h, state_c = LSTM(latent_dim,return_sequences=True,return_state=True)(x)
-    x, state_h, state_c = LSTM(latent_dim,return_sequences=True,return_state=True)(x)
-    encoder_states = [state_h, state_c]
-
-    decoder_target_input = Input(shape=(max_seq_len,),dtype='int32')
-
-    # Set up the decoder, using `encoder_states` as initial state.
-    decoder_inputs = Input(shape=(max_seq_len,))
-    x = Embedding(vocab_len, embedding_dim,input_length=max_seq_len)(decoder_inputs)
-    x = LSTM(latent_dim, return_sequences=True)(x, initial_state=encoder_states)
-    x = LSTM(latent_dim, return_sequences=True)(x)
-    decoder_outputs = Dense(vocab_len, activation="softmax")(x)
-    # Define the model that will turn
-    # `encoder_input_data` & `decoder_input_data` into `decoder_target_data`
-    model = Model([encoder_inputs, decoder_inputs, decoder_target_input], decoder_outputs)
-
-
-
-    # Compile & run training
-    model.compile(optimizer='adam', loss=hack_loss(decoder_target_input))
-
-# Note that `decoder_target_data` needs to be one-hot encoded,
-# rather than sequences of integers like `decoder_input_data`!
-num_samples = encoder_input_data.shape[0]
-model.fit([encoder_input_data, decoder_input_data, decoder_target_data],
-         np.zeros((num_samples,max_seq_len,1)),
-         batch_size=batch_size,
-         epochs=epochs,
-         validation_split=0.2)
-
-# batcher = Batcher(encoder_input_data, decoder_input_data, decoder_target_data, batch_size)
-#
-# # Define helper functions for printing
-# # conversations for training evaluation
-# def printEncoderInput(encoder_input,label="INPUT"):
-#     enc = encoder_input[0]
-#     enc_words = [reverse_vocab_lookup[w] for w in enc]
-#     print(label + ": ".join(enc_words))
-#
-# def printPred(pred_vec,label="PRED"):
-#     pred = pred_vec[0]
-#     pred_words = []
-#     pred_words = [np.random.choice(vocab,size=1,p=w)[0] for w in pred]
-#     print(label + ": " + " ".join(pred_words))
-#
-# num_batches = batcher.length // batcher.batch_size
-#
-# try:
-#     for epoch in range(epochs):
-#         # Iterate through our dataset
-#         for _ in range(num_batches):
-#             encoder_input_batch,decoder_input_batch,decoder_target_batch = batcher.next()
-#
-#             unused_output = np.zeros((batch_size,max_seq_len,vocab_len))
-#             # Train the generator
-#             loss = model.train_on_batch([encoder_input_batch, decoder_input_batch, decoder_target_batch], unused_output)
-#
-#             # Plot the progress
-#             iteration = (epoch*num_batches) + _
-#             print("%d loss: %f" % (iteration, loss))
-#
-#             if _ % log_interval == 0:
-#                 unused_pred = np.zeros(decoder_target_batch.shape)
-#                 pred = model.predict([encoder_input_batch, decoder_input_batch, unused_pred])
-#                 printEncoderInput(encoder_input_batch)
-#                 printPred(pred)
-#                 printEncoderInput(decoder_target_batch,"TRUE")
-#
-#             # If at save interval => save generated image samples
-#             if _ % save_interval == 0:
-#                 model.save('saved/rnn/s2s_{}.h5'.format(iteration))
-#
-#
-# except KeyboardInterrupt:
-#     print("Early exit")
-
-
-
-# Save model
-model.save(FINAL_SAVE_PATH)
-
-HODOR
-
-# Next: inference mode (sampling).
-# Here's the drill:
-# 1) encode input and retrieve initial decoder state
-# 2) run one step of decoder with this initial state
-# and a "start of sequence" token as target.
-# Output will be the next target token
-# 3) Repeat with the current target token and current states
-
-# Define sampling models
-encoder_model = Model(encoder_inputs, encoder_states)
-
-decoder_state_input_h = Input(shape=(latent_dim,))
-decoder_state_input_c = Input(shape=(latent_dim,))
-decoder_states_inputs = [decoder_state_input_h, decoder_state_input_c]
-decoder_outputs, state_h, state_c = decoder_lstm(
-    decoder_inputs, initial_state=decoder_states_inputs)
-decoder_states = [state_h, state_c]
-decoder_outputs = decoder_dense(decoder_outputs)
-decoder_model = Model(
-    [decoder_inputs] + decoder_states_inputs,
-    [decoder_outputs] + decoder_states)
-
-# Reverse-lookup token index to decode sequences back to
-# something readable.
-reverse_input_char_index = dict(
-    (i, char) for char, i in input_token_index.items())
-reverse_target_char_index = dict(
-    (i, char) for char, i in target_token_index.items())
-
-
-def decode_sequence(input_seq):
-    # Encode the input as state vectors.
-    states_value = encoder_model.predict(input_seq)
-
-    # Generate empty target sequence of length 1.
-    target_seq = np.zeros((1, 1, num_decoder_tokens))
-    # Populate the first character of target sequence with the start character.
-    target_seq[0, 0, target_token_index['\t']] = 1.
-
-    # Sampling loop for a batch of sequences
-    # (to simplify, here we assume a batch of size 1).
-    stop_condition = False
-    decoded_sentence = ''
-    while not stop_condition:
-        output_tokens, h, c = decoder_model.predict(
-            [target_seq] + states_value)
-
-        # Sample a token
-        sampled_token_index = np.argmax(output_tokens[0, -1, :])
-        sampled_char = reverse_target_char_index[sampled_token_index]
-        decoded_sentence += sampled_char
-
-        # Exit condition: either hit max length
-        # or find stop character.
-        if (sampled_char == '\n' or
-           len(decoded_sentence) > max_decoder_seq_length):
-            stop_condition = True
-
-        # Update the target sequence (of length 1).
-        target_seq = np.zeros((1, 1, num_decoder_tokens))
-        target_seq[0, 0, sampled_token_index] = 1.
-
-        # Update states
-        states_value = [h, c]
-
-    return decoded_sentence
-
-
-for seq_index in range(100):
-    # Take one sequence (part of the training test)
-    # for trying out decoding.
-    input_seq = encoder_input_data[seq_index: seq_index + 1]
-    decoded_sentence = decode_sequence(input_seq)
-    print('-')
-    print('Input sentence:', input_texts[seq_index])
-    print('Decoded sentence:', decoded_sentence)
